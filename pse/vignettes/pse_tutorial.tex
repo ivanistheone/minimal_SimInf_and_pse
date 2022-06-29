@@ -1,0 +1,244 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[margin=1.2in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{url}
+\usepackage{framed, color}
+\definecolor{shadecolor}{rgb}{0.9, 0.9, 0.9}
+\setlength{\topmargin}{0cm}
+% Create friendly environments for theorems, propositions, &c.
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newenvironment{proof}[1][Proof]{\begin{trivlist}
+	\item[\hskip \labelsep {\bfseries #1}]}{\end{trivlist}}
+\newenvironment{definition}[1][Definition]{\begin{trivlist}
+	\item[\hskip \labelsep {\bfseries #1}]}{\end{trivlist}}
+\newenvironment{example}[1][Example]{\begin{trivlist}
+	\item[\hskip \labelsep {\bfseries #1}]}{\end{trivlist}}
+\newenvironment{remark}[1][Remark]{\begin{trivlist}
+	\item[\hskip \labelsep {\bfseries #1}]}{\end{trivlist}}
+\newcommand{\bu}[1]{\mbox{$\mathbf{#1}$}}
+\newcommand{\R}{{\sf \,R\,}} % padrao para representar o R, segundo algumas listas
+%\VignetteIndexEntry{Parameter space exploration tutorial}
+
+
+
+\usepackage{Sweave}
+\begin{document}
+\input{pse_tutorial-concordance}
+\setkeys{Gin}{width=0.8\textwidth}
+
+
+\title{Sensitivity analyses: a brief tutorial with \R package pse}
+\author{Chalom, A. \footnote{Theoretical Ecology Lab, LAGE at  Dep. Ecologia, Instituto de Biociências, Universidade de São Paulo,
+Rua do Matão travessa 14 n\textordmasculine \ 321, São Paulo, SP, CEP 05508-900, Brazil.}
+\footnote{email: andrechalom@gmail.com} 
+\and
+Mandai, C.Y. \footnotemark[1] \and  Prado, P.I. \footnotemark[1]}
+\date{Version 0.3.1, November 23, 2013} 
+\maketitle
+
+This document presents a brief practical tutorial about the use of
+sensitivity analyses tools in the study of ecological models. To 
+read about the underlying theory, please refer to our work in \cite{Chalom12}.
+
+We presume for this tutorial that you are already familiar with the
+R programing environment and with your chosen model. We will illustrate
+the techniques using a simple model of population growth.
+
+You should have installed \R 
+\footnote{This tutorial was written and tested with \R version 
+3.0.1, but it should work with newer versions}
+along with an interface and 
+text editor of your liking, and the package ``pse''. This package is based
+on the ``sensitivity'' package, and is designed to resemble its uses, so
+researchers who already use it will be able to write code with the pse
+package easily. Major differences will be noted on the help pages and
+in this tutorial.
+
+This tutorial focuses on the parameter space exploration of deterministic 
+models. For a discussion of stochastic models, see the `multiple' vignette 
+on the same package. For theoretical background as well as a quick tutorial on
+PLUE analyses, see our paper in \cite{Chalom15}.
+
+
+\section{Input parameters}
+The first thing that must be done is to determine exactly what are
+the input parameters to your model. You should list which parameters
+should be investigated, what are the probability density functions (PDFs)
+from which the parameter values will be calculated, and what are
+the arguments to these PDFs.
+
+In the examples, we will use a simple model of logistical population growth, 
+in which a population
+has an intrinsic rate of growth $r$, a carrying capacity of $K$ and a 
+starting population of $X_0$. In each time step, the population may grow
+or diminish after the following expression:
+
+\begin{equation}
+		X_{t+1} = X_t + r X_t \left(1-X_t/K \right)
+\end{equation}
+
+We are interested in studying the effects of the parameters $r$, $K$
+and $X_0$ on the final population. After researching on our databases,
+we have decided that, for our species of interest, $r$ and $K$ follow
+a normal distribution with known parameters. However, we could not
+reliably determine what the initial population should be, so we
+have used an uniform distribution covering all the reasonable values.
+The following table summarizes this:
+
+		\begin{center}
+		\begin{tabular}{l l l}
+				\hline
+				Parameter & Distribution & Arguments\\
+				\hline
+				$r$ & normal & $\mu = 1.7$, $\sigma=0.3$ \\
+				$K$ & normal & $\mu = 40$, $\sigma=1$ \\
+				$X_0$ & uniform & $\min = 1$, $\max=50$ \\
+				\hline
+		\end{tabular}
+		\end{center}
+
+We next translate this table to three \R objects that will be used
+in the sensitivity analyses, containing (1) the names of the parameters, (2) 
+the probability density functions, and (3) {\em a list containing the lists} with 
+all the parameters to the density functions:
+
+\begin{Schunk}
+\begin{Sinput}
+> factors <- c("r", "K", "X0")
+> q <- c("qnorm", "qnorm", "qunif")
+> q.arg <- list( list(mean=1.7, sd=0.3), list(mean=40, sd=1), 
++ 	list(min=1, max=50) )
+\end{Sinput}
+\end{Schunk}
+
+\begin{shaded}
+A fundamental question in this stage is to determine whether, inside the
+ascribed parameter ranges, {\em every parameter combination} is meaningful.
+See the next examples on this:
+
+\textbf{Example 1:}
+
+We would like to run a model for a species abundance distribution (SAD),
+and we decided to examine the effect of $N$, the total number of individuals
+in the community, and $S$, the total number of species. We can run the model with
+$N=100$ and $S=50$ or with $N=15$ and $S=3$, so there is nothing wrong with these
+values. However, the {\em combination} $N=15$, $S=50$ is meaningless, as it would
+imply that there are more species than individuals. One solution to this problem
+is to run the models with the parameters modified as following: $N$ is the total
+number of individuals, and $\hat{s}$ is the average number of individuals for
+each species. So, $\hat{s} * N = S$, and now every combination of $N$ and $\hat{s}$
+is meaningful.
+
+\textbf{Example 2:}
+
+In a model of structured population growth, we have estimated independently
+two parameters for each class: $S$, the probability that a given individual
+survives and does not move into the next size class, and $G$, the probability
+that a given individual survives and grows into the next class. We can run the
+model with $S=0.2$ and $G=0.7$, or $S=0.8$ and $G=0.1$. However, if we try to
+run the model with $S=0.8$ and $G=0.7$, we arrive at the conclusion that, for
+every individual in the original size class, in the next time step we will have 
+0.8 individuals in the same class and more 0.7 in the next, giving a total of 1.5
+individuals! The problem is that the sum of $S$ and $G$ must be smaller than 1.
+One way to solve this is to define new parameters $\hat{s}$ and $\hat{g}$ such 
+that $\hat{s}$ is the survival probability, independently of the individual growing,
+and $\hat{g}$ is the growth probability for each surviving individual.
+We can relate these parameters to the former ones, as $G = \hat{s}*\hat{g}$ and
+$S = \hat{s} * (1-\hat{g})$.
+
+\textbf{Note:}
+
+When transforming parameters like done on the above examples, it is important
+to remember that the new parameters may not have the same probability density
+functions as the original ones. 
+
+\end{shaded}
+
+\subsection{Optional: More details about the quantiles}
+
+The quantile functions used can be any of the built-in quantile functions as
+\textbf{qnorm} for normal, \textbf{qbinom} for binomial,
+\textbf{qpois} for poison, \textbf{qunif} for uniform, etc; 
+less common distributions can be found on other packages, like the
+truncated normal distribution on package ``msm''. You can even define
+other quantile functions, given that their first argument is the probability,
+and that they are able to work on a vector of probabilities.
+For example:
+
+The quantiles of an empirical data set can be used by creating
+a wrapper function for the \textbf{quantile} function:
+\begin{Schunk}
+\begin{Sinput}
+> qdata <- function(p, data) quantile(x=data, probs=p)
+\end{Sinput}
+\end{Schunk}
+
+A discrete uniform density function, usefull for parameters that
+must be integer numbers, can be given by
+\begin{Schunk}
+\begin{Sinput}
+> qdunif<-function(p, min, max) floor(qunif(p, min, max))
+\end{Sinput}
+\end{Schunk}
+
+\section{Your model}
+The model that you wish to analyse must be formulated as an \R function that
+receives a {\em data.frame}, in which every column represent a different
+parameter, and every line represents a different combination of values
+for those parameters. The function must return an array with the same
+number of elements as there were lines in the original data frame,
+and each entry in the array should correspond to the result of running
+the model with the corresponding parameter combination. We will cover
+the case in which a model outputs more than a single number in section
+\ref{multiple}.
+
+If your model is already written in R, and accepts a single combination
+of values, it is easy to write a ``wrapper'' using the function
+\textbf{mapply} to your model. In the example below, the function
+\textbf{oneRun} receives three numbers, corresponding to $r$, $K$ and $X_0$,
+and returns a single value corresponding to the final population.
+The function \textbf{modelRun} encapsulates this function, in a manner to
+receive a data.frame containing all parameter combinations and returning
+the results in one array.
+
+Make \textbf{SURE} that the order in which the parameters are defined above
+is the same in which they are being passed to the function.
+
+\begin{Schunk}
+\begin{Sinput}
+> oneRun <- function (r, K, Xo) {
++     X <- Xo
++     for (i in 0:20) {
++        X <- X+r*X*(1-X/K)
++     }   
++     return (X) 
++ }
+> modelRun <- function (my.data) {
++ 	return(mapply(oneRun, my.data[,1], my.data[,2], my.data[,3]))
++ }
+\end{Sinput}
+\end{Schunk}
+
+If your model is written in a different language, as C or Fortran,
+it is possible to write an interface with \R by compiling your model as a 
+shared library, and dynamically loading this library \cite{Geyer}.
+Also, you should consider uncoupling the simulation and the analyses (see
+section \ref{uncouple}).
+
+\section{Uncertainty and sensibility analyses}
+We first use the \textbf{LHS} function to generate a hypercube for your model.
+The mandatory arguments for this function are: {\em model}, the function that
+represents your model; {\em factors}, an array with the parameter names; 
+{\em N}, the number of parameter combinations to be generated; {\em q},
+the names of the PDF functions to generate the parameter values; and {\em q.arg},
+a list with the arguments of each pdf. We have already constructed suitable objects
+to pass to this function above, so now we simply call the \textbf{LHS} function:
+
+\begin{Schunk}
+\begin{Sinput}
+> library(pse)
