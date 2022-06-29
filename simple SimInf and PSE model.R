@@ -7,7 +7,7 @@ transitions <- c("S -> S*beta*I/(S+I+R) -> I",
                  "I -> gamma*I -> R")
 
 compartments <- c("S", "I", "R")
-n <- 1000      # number of simulations of the SimInf model
+n <- 1         # number of simulations of the SimInf model
 Psize <- 10000 # Population size
 Isize <- 5     # Number of people initially infected
 tmax <- 400    # 4oo days with each time step one day
@@ -114,7 +114,7 @@ LHS10 <- LHS(modelRun,
              q.arg=q.arg,
              res.names=c("S", "R"),
              nboot=50,
-             repetitions=1)
+             repetitions=1000)
 
 # Looking around at parameters we used for each simulation
 class(get.data(LHS10))
@@ -146,7 +146,7 @@ LHS100 <- LHS(modelRun,
              q.arg=q.arg,
              res.names=c("S", "R"),
              nboot=50,
-             repetitions=1)
+             repetitions=1000)
 
 # Looking around at parameters we used for each simulation
 class(get.data(LHS100))
