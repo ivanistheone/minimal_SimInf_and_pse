@@ -13,37 +13,13 @@ Isize <- 5     # Number of people initially infected
 tmax <- 400    # 4oo days with each time step one day
 
 
-# Testing code to make sure basic wrapping function works...
-# # Function that runs the SimInf model with parameters:
-# # - beta = transmission coefficient
-# # - gamma = infectious period (4 days^-1)
-# # and returns the SimInf result (an object)
-# oneRun <- function (beta, gamma) {
-#   # initial starting conditions
-#   u0 <- data.frame(
-#     S=rep((Psize-Isize),n),
-#     I=rep(Isize,n),
-#     R=rep(0,n)
-#   )
-#   model <- mparse(transitions = transitions,
-#                   compartments = compartments,
-#                   gdata = c(beta = beta, gamma=gamma),
-#                   u0 = u0,
-#                   tspan = 1:tmax) 
-#   result <- run(model)
-#   return (result)
-# }
-# 
-# 
-# # Test run with parameters
-# result = oneRun(beta = 0.6, gamma = 0.25)
-# 
-# 
-# # Plot model result
-# plot.new()
-# par(mfrow=(c(1,1)))
-# plot(result)
 
+# The model that you wish to analyse must be formulated as an R function that:
+# receives a data.frame, in which every column represent a different parameter,
+# and every line represents a different combination of values for those parameters.
+# The function must return an array with the same number of elements as there were lines
+# in the original data frame, and each entry in the array should correspond to the result
+# of running the model with the corresponding parameter combination.
 
 # Function that runs the SimInf model with parameters:
 # - beta = transmission coefficient
@@ -66,17 +42,12 @@ oneRunFinalValues <- function (beta, gamma) {
   # NEW NEW NEW
   # Custom code to extract the final values of S, I, R at tmax
   
-  # result.U = the result matrix with the number of individuals in each compartment in every node.
-  # Integer matrix (NnodesNcomp × length(tspan)).
-  # U[, j] contains the number of individuals in each compartment at tspan[j].
-  # U[1:Ncomp, j] contains the number of individuals in each compartment in node 1 at tspan[j].
-  # U[(Ncomp + 1):(2 * Ncomp), j] contains the number of individuals in each compartment in node 2 at tspan[j] etc.
-
-  # Sample code that returns a single value = S at t=tmax (used for debugging)
-  # SfinalVals <- result@U[seq(1, 3*n, by=3),tmax]
-  # SfinalVal = mean(SfinalVals)
-  # output = SfinalVal
-  # return (output)
+  # relevant info:
+  #    result.U = the result matrix with the number of individuals in each compartment in every node.
+  #    Integer matrix (NnodesNcomp × length(tspan)).
+  #    U[, j] contains the number of individuals in each compartment at tspan[j].
+  #    U[1:Ncomp, j] contains the number of individuals in each compartment in node 1 at tspan[j].
+  #    U[(Ncomp + 1):(2 * Ncomp), j] contains the number of individuals in each compartment in node 2 at tspan[j] etc.
 
   # Extract the values from the result matrix U
   # result@U[,tmax] is a 3*n long array that contains 
@@ -98,6 +69,7 @@ oneRunFinalValues <- function (beta, gamma) {
   #               Error in if (const(t, min(1e-08, mean(t, na.rm = TRUE)/1e+06))) { : 
   #               missing value where TRUE/FALSE needed
   #       from somewhere deep in the package.
+  #       so to avoid this error we don't return the IfinalVal
   return (outputs)
 }
 
@@ -117,31 +89,7 @@ modelRun <- function (my.data) {
 
 
 
-
-
-# Testing modelRun works 
-# L <- as.data.frame(matrix(nrow=3, ncol=length(factors)))
-# L[1,] <- list(0.6, 0.25)
-# L[2,] <- list(0.62, 0.25)
-# L[3,] <- list(0.63, 0.25)
-# L
-# 
-# results <- modelRun(L)
-# results
-# 
-# # results is of type list
-# class(results)
-# 
-# # individual result
-# res = results[[1]]
-
-
-
-
-
-
-
-#Now want to get the model results to talk with the pse package.. something like below 
+# Now want to get the model results to talk with the pse package.. something like below 
 
 library(pse)
 
@@ -189,11 +137,11 @@ plotprcc(LHS10)
 
 
 
-# LARGE RUN WITH N=1000
-# I keep repetitions=1 still, because 
-LHS1K <- LHS(modelRun,
+# LARGE RUN WITH N=100
+# I keep repetitions=1 still, because model 
+LHS100 <- LHS(modelRun,
              factors=factors,
-             N=1000,
+             N=100,
              q=q,
              q.arg=q.arg,
              res.names=c("S", "R"),
@@ -201,19 +149,18 @@ LHS1K <- LHS(modelRun,
              repetitions=1)
 
 # Looking around at parameters we used for each simulation
-class(get.data(LHS1K))
-dim(get.data(LHS1K))
-# get.data(LHS1K)
+class(get.data(LHS100))
+dim(get.data(LHS100))
+# get.data(LHS100)
 
 # ... and results
-class(get.results(LHS1K))
-dim(get.results(LHS1K))
-# get.results(LHS1K)
+class(get.results(LHS100))
+dim(get.results(LHS100))
+# get.results(LHS100)
 
 # try plots from the vignette pse_tutorial.pdf
 # https://mran.microsoft.com/snapshot/2017-05-24/web/packages/pse/vignettes/pse_tutorial.pdf
-plotecdf(LHS1K, stack=TRUE)
-plotscatter(LHS1K, add.lm=FALSE)
-plotprcc(LHS1K)
-
+plotecdf(LHS100, stack=TRUE)
+plotscatter(LHS100, add.lm=FALSE)
+plotprcc(LHS100)
 
